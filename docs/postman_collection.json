@@ -1,0 +1,343 @@
+{
+  "info": {
+    "name": "YAKEEN Proxy Service",
+    "description": "Standalone YAKEEN Identity Verification Proxy — deployed on Saudi VPS",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "internal_secret",
+      "value": "your-internal-secret-here",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the service is running."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/health",
+                  "host": ["{{base_url}}"],
+                  "path": ["health"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": true,\n  \"status\": \"UP\",\n  \"timestamp\": \"2026-07-16T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "YAKEEN Verification",
+      "item": [
+        {
+          "name": "Verify Saudi Identity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{internal_secret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identityType\": \"SAUDI\",\n  \"identityNumber\": \"1234567890\",\n  \"dateOfBirth\": \"1400-01-01\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/yakeen/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "yakeen", "verify"]
+            },
+            "description": "Verify a Saudi citizen identity through YAKEEN."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Identity verified successfully\",\n  \"data\": {\n    \"firstName\": \"محمد\",\n    \"lastName\": \"العمري\",\n    \"nationality\": \"SA\"\n  }\n}"
+            },
+            {
+              "name": "Unauthorized",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Unauthorized — invalid secret\"\n}"
+            },
+            {
+              "name": "Validation Error",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"identityType\",\n      \"message\": \"Identity type is required\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "YAKEEN Error",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": false,\n  \"message\": \"YAKEEN verification failed\"\n}"
+            },
+            {
+              "name": "Service Unavailable",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": false,\n  \"message\": \"YAKEEN service unavailable. Please try again later.\"\n}"
+            },
+            {
+              "name": "Rate Limited",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Too many requests — please try again later\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify Resident Identity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{internal_secret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identityType\": \"RESIDENT\",\n  \"identityNumber\": \"2345678901\",\n  \"dateOfBirth\": \"1990-05-15\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/yakeen/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "yakeen", "verify"]
+            },
+            "description": "Verify a resident identity through YAKEEN."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Identity verified successfully\",\n  \"data\": {\n    \"firstName\": \"أحمد\",\n    \"lastName\": \"خان\",\n    \"nationality\": \"PK\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify — Missing Auth Header",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identityType\": \"SAUDI\",\n  \"identityNumber\": \"1234567890\",\n  \"dateOfBirth\": \"1400-01-01\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/yakeen/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "yakeen", "verify"]
+            },
+            "description": "Test request without Authorization header — should return 401."
+          },
+          "response": [
+            {
+              "name": "Unauthorized",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Unauthorized — missing authorization header\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify — Empty Body",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{internal_secret}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/yakeen/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "yakeen", "verify"]
+            },
+            "description": "Test request with empty body — should return 422 with validation errors."
+          },
+          "response": [
+            {
+              "name": "Validation Errors",
+              "originalRequest": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/yakeen/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "yakeen", "verify"]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"field\": \"identityType\",\n      \"message\": \"Identity type is required\"\n    },\n    {\n      \"field\": \"identityNumber\",\n      \"message\": \"Identity number is required\"\n    },\n    {\n      \"field\": \"dateOfBirth\",\n      \"message\": \"Date of birth is required\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

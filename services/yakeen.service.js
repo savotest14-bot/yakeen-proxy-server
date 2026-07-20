@@ -1,0 +1,264 @@
+const yakeenAxios = require("../config/axios");
+const logger = require("../config/logger");
+const tokenCache = require("../utils/tokenCache");
+const env = require("../config/env");
+
+/* =====================================================
+   Safe Axios Error Logger — never log full response
+====================================================== */
+
+const safeLogAxiosError = (label, error) => {
+  const info = {
+    label,
+    message: error.message || "Unknown error",
+    code: error.code || null,
+    status: error.response?.status || null,
+    statusText: error.response?.statusText || null,
+    responseData: error.response?.data || null,
+    url: error.config?.url || null,
+    method: error.config?.method || null,
+  };
+  logger.error(`${label}`, info);
+};
+
+/* =====================================================
+   YAKEEN Login — Authenticate & Cache Token
+====================================================== */
+
+const login = async () => {
+  const loginUrl = env.YAKEEN_LOGIN_URL;
+
+  logger.info("YAKEEN login attempt", { url: loginUrl });
+
+  try {
+    const response = await yakeenAxios.post(
+      loginUrl,
+      {
+        username: env.YAKEEN_USERNAME,
+        password: env.YAKEEN_PASSWORD,
+      },
+      {
+        headers: {
+          "app-id": env.YAKEEN_APP_ID,
+          "app-key": env.YAKEEN_APP_KEY,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      }
+    );
+
+    if (response.status >= 400) {
+      logger.error("YAKEEN login returned error status", {
+        status: response.status,
+        data: response.data,
+      });
+      throw new Error(`YAKEEN login failed with status ${response.status}`);
+    }
+
+    const data = response.data;
+
+    if (!data || !data.accessToken) {
+      logger.error("YAKEEN login response missing accessToken", {
+        keys: Object.keys(data || {}),
+      });
+      throw new Error("YAKEEN login response missing accessToken");
+    }
+
+    // Default 55 minutes if no expiry returned (tokens typically last 1h)
+    const expiresInSeconds = data.expiresIn || 3300;
+    tokenCache.setToken(data.accessToken, expiresInSeconds);
+
+    logger.info("YAKEEN login success — token cached");
+
+    return data.accessToken;
+  } catch (error) {
+    safeLogAxiosError("YAKEEN login failure", error);
+    throw new Error("YAKEEN authentication failed");
+  }
+};
+
+/* =====================================================
+   Get Valid Token — Reuse or Re-login
+====================================================== */
+
+const getToken = async () => {
+  const cached = tokenCache.getToken();
+  if (cached) {
+    logger.info("Using cached YAKEEN token");
+    return cached;
+  }
+
+  logger.info("Token expired or not cached — logging in…");
+  return login();
+};
+
+/* =====================================================
+   Build Verification Request Config
+====================================================== */
+
+const buildVerificationConfig = (identityType, identityNumber, dateOfBirth, token) => {
+  const serviceIdentifier =
+    identityType === "SAUDI"
+      ? env.YAKEEN_SAUDI_SERVICE_IDENTIFIER
+      : env.YAKEEN_RESIDENT_SERVICE_IDENTIFIER;
+
+  const query =
+    identityType === "SAUDI"
+      ? { nin: identityNumber, dateOfBirth }
+      : { iqama: identityNumber, dateOfBirth };
+
+  const url = `${env.YAKEEN_BASE_URL}/api/v1/yakeen/data`;
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "service-identifier": serviceIdentifier,
+    "usage-code": env.YAKEEN_USAGE_CODE,
+    "operator-id": env.YAKEEN_OPERATOR_ID,
+    "accept-language": "ar",
+    "app-id": env.YAKEEN_APP_ID,
+    "app-key": env.YAKEEN_APP_KEY,
+  };
+
+  return { url, params: query, headers, timeout: 30000 };
+};
+
+/* =====================================================
+   YAKEEN Verification — Fetch Identity Data
+====================================================== */
+
+const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => {
+  logger.info("YAKEEN verification request", {
+    identityType,
+    identityNumber,
+    dateOfBirth,
+  });
+
+  /* ── Acquire token ─────────────────────────────── */
+  let token;
+  try {
+    token = await getToken();
+  } catch (loginError) {
+    logger.error("Token acquisition failed", { message: loginError.message });
+    throw new Error("YAKEEN authentication failed. Please try again later.");
+  }
+
+  const config = buildVerificationConfig(identityType, identityNumber, dateOfBirth, token);
+
+  logger.info("YAKEEN verification call", {
+    url: config.url,
+    params: config.params,
+  });
+
+  /* ── First attempt ─────────────────────────────── */
+  try {
+    const response = await yakeenAxios.get(config.url, {
+      params: config.params,
+      headers: config.headers,
+      timeout: config.timeout,
+    });
+
+    if (response.status === 401) {
+      throw Object.assign(new Error("Unauthorized"), {
+        response: { status: 401, data: response.data },
+      });
+    }
+
+    if (response.status >= 400) {
+      const msg =
+        response.data?.message || response.data?.error || "YAKEEN verification failed";
+      throw Object.assign(new Error(msg), {
+        response: { status: response.status, data: response.data },
+      });
+    }
+
+    logger.info("YAKEEN verification success", {
+      identityType,
+      status: response.status,
+    });
+
+    return response.data;
+  } catch (error) {
+    /* ── Retry on 401 ─────────────────────────────── */
+    if (error.response && error.response.status === 401) {
+      logger.info("YAKEEN token expired — re-authenticating for retry…");
+
+      tokenCache.clearToken();
+
+      try {
+        const newToken = await getToken();
+        const retryConfig = buildVerificationConfig(
+          identityType,
+          identityNumber,
+          dateOfBirth,
+          newToken
+        );
+
+        const retryResponse = await yakeenAxios.get(retryConfig.url, {
+          params: retryConfig.params,
+          headers: retryConfig.headers,
+          timeout: retryConfig.timeout,
+        });
+
+        if (retryResponse.status >= 400) {
+          const msg =
+            retryResponse.data?.message ||
+            retryResponse.data?.error ||
+            "YAKEEN verification failed after retry";
+          throw new Error(msg);
+        }
+
+        logger.info("YAKEEN verification retry success", {
+          identityType,
+          status: retryResponse.status,
+        });
+
+        return retryResponse.data;
+      } catch (retryError) {
+        safeLogAxiosError("YAKEEN retry verification failure", retryError);
+
+        if (retryError.response?.data) {
+          throw new Error(
+            retryError.response.data.message ||
+              retryError.response.data.error ||
+              "YAKEEN verification failed after retry"
+          );
+        }
+
+        throw new Error("YAKEEN service unavailable after retry. Please try again later.");
+      }
+    }
+
+    /* ── Non-401 errors ───────────────────────────── */
+    safeLogAxiosError("YAKEEN verification failure", error);
+
+    if (error.response?.data) {
+      throw new Error(
+        error.response.data.message ||
+          error.response.data.error ||
+          "YAKEEN verification failed"
+      );
+    }
+
+    if (error.code === "ECONNABORTED") {
+      throw new Error("YAKEEN service timed out. Please try again later.");
+    }
+
+    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+      throw new Error("YAKEEN service is unreachable. Please try again later.");
+    }
+
+    throw new Error("YAKEEN service unavailable. Please try again later.");
+  }
+};
+
+/* =====================================================
+   Exports
+====================================================== */
+
+module.exports = {
+  login,
+  getToken,
+  verifyIdentity,
+  buildVerificationConfig,
+  safeLogAxiosError,
+};
