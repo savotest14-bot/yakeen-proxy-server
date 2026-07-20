@@ -59,7 +59,7 @@ const login = async () => {
 
     const data = response.data;
 
-    if (!data || !data.accessToken) {
+    if (!data || !data.access_token) {
       logger.error("YAKEEN login response missing accessToken", {
         keys: Object.keys(data || {}),
       });
@@ -67,12 +67,12 @@ const login = async () => {
     }
 
     // Default 55 minutes if no expiry returned (tokens typically last 1h)
-    const expiresInSeconds = data.expiresIn || 3300;
-    tokenCache.setToken(data.accessToken, expiresInSeconds);
+    const expiresInSeconds = data.expires_in || 3300;
+    tokenCache.setToken(data.access_token, expiresInSeconds);
 
     logger.info("YAKEEN login success — token cached");
 
-    return data.accessToken;
+    return data.access_token;
   } catch (error) {
     safeLogAxiosError("YAKEEN login failure", error);
     throw new Error("YAKEEN authentication failed");
