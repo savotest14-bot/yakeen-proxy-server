@@ -47,6 +47,8 @@ const login = async () => {
       }
     );
 
+    console.log("YAKEEN login response:", response.status, response.data);
+
     if (response.status >= 400) {
       logger.error("YAKEEN login returned error status", {
         status: response.status,
@@ -118,7 +120,7 @@ const buildVerificationConfig = (identityType, identityNumber, dateOfBirth, toke
     "app-id": env.YAKEEN_APP_ID,
     "app-key": env.YAKEEN_APP_KEY,
   };
-
+  console.log("YAKEEN verification config:", { url, query, headers });
   return { url, params: query, headers, timeout: 30000 };
 };
 
@@ -156,7 +158,7 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
       headers: config.headers,
       timeout: config.timeout,
     });
-
+   console.log("YAKEEN verification response:", response.status, response.data);
     if (response.status === 401) {
       throw Object.assign(new Error("Unauthorized"), {
         response: { status: 401, data: response.data },
@@ -211,7 +213,7 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
           identityType,
           status: retryResponse.status,
         });
-
+        console.log("YAKEEN verification retry response:", retryResponse.status, retryResponse.data);
         return retryResponse.data;
       } catch (retryError) {
         safeLogAxiosError("YAKEEN retry verification failure", retryError);
