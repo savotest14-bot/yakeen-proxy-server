@@ -98,16 +98,59 @@ const getToken = async () => {
    Build Verification Request Config
 ====================================================== */
 
-const buildVerificationConfig = (identityType, identityNumber, dateOfBirth, token) => {
+// const buildVerificationConfig = (identityType, identityNumber, dateOfBirth, token) => {
+//   const serviceIdentifier =
+//     identityType === "SAUDI"
+//       ? env.YAKEEN_SAUDI_SERVICE_IDENTIFIER
+//       : env.YAKEEN_RESIDENT_SERVICE_IDENTIFIER;
+
+//   const query =
+//     identityType === "SAUDI"
+//       ? { nin: identityNumber, dateOfBirth }
+//       : { iqama: identityNumber, dateOfBirth };
+
+//   const url = `${env.YAKEEN_BASE_URL}/api/v1/yakeen/data`;
+
+//   const headers = {
+//     Authorization: `Bearer ${token}`,
+//     "service-identifier": serviceIdentifier,
+//     "usage-code": env.YAKEEN_USAGE_CODE,
+//     "operator-id": env.YAKEEN_OPERATOR_ID,
+//     "accept-language": "ar",
+//     "app-id": env.YAKEEN_APP_ID,
+//     "app-key": env.YAKEEN_APP_KEY,
+//   };
+//   console.log("YAKEEN verification config:", { url, query, headers });
+//   return { url, params: query, headers, timeout: 30000 };
+// };
+
+
+const buildVerificationConfig = (
+  identityType,
+  identityNumber,
+  dateOfBirth,
+  token
+) => {
   const serviceIdentifier =
     identityType === "SAUDI"
       ? env.YAKEEN_SAUDI_SERVICE_IDENTIFIER
       : env.YAKEEN_RESIDENT_SERVICE_IDENTIFIER;
 
+  // Convert YYYY-MM-DD -> YYYY-MM
+  const formattedDateOfBirth = dateOfBirth
+    ? dateOfBirth.substring(0, 7)
+    : dateOfBirth;
+
   const query =
     identityType === "SAUDI"
-      ? { nin: identityNumber, dateOfBirth }
-      : { iqama: identityNumber, dateOfBirth };
+      ? {
+        nin: identityNumber,
+        dateOfBirth: formattedDateOfBirth,
+      }
+      : {
+        iqama: identityNumber,
+        dateOfBirth: formattedDateOfBirth,
+      };
 
   const url = `${env.YAKEEN_BASE_URL}/api/v1/yakeen/data`;
 
@@ -120,10 +163,20 @@ const buildVerificationConfig = (identityType, identityNumber, dateOfBirth, toke
     "app-id": env.YAKEEN_APP_ID,
     "app-key": env.YAKEEN_APP_KEY,
   };
-  console.log("YAKEEN verification config:", { url, query, headers });
-  return { url, params: query, headers, timeout: 30000 };
-};
 
+  console.log("YAKEEN verification config:", {
+    url,
+    query,
+    headers,
+  });
+
+  return {
+    url,
+    params: query,
+    headers,
+    timeout: 30000,
+  };
+};
 /* =====================================================
    YAKEEN Verification — Fetch Identity Data
 ====================================================== */
@@ -158,7 +211,7 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
       headers: config.headers,
       timeout: config.timeout,
     });
-   console.log("YAKEEN verification response:", response.status, response.data);
+    console.log("YAKEEN verification response:", response.status, response.data);
     if (response.status === 401) {
       throw Object.assign(new Error("Unauthorized"), {
         response: { status: 401, data: response.data },
@@ -221,8 +274,8 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
         if (retryError.response?.data) {
           throw new Error(
             retryError.response.data.message ||
-              retryError.response.data.error ||
-              "YAKEEN verification failed after retry"
+            retryError.response.data.error ||
+            "YAKEEN verification failed after retry"
           );
         }
 
@@ -236,8 +289,8 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
     if (error.response?.data) {
       throw new Error(
         error.response.data.message ||
-          error.response.data.error ||
-          "YAKEEN verification failed"
+        error.response.data.error ||
+        "YAKEEN verification failed"
       );
     }
 
