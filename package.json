@@ -7,7 +7,6 @@
     "start": "node app.js",
     "dev": "node --watch app.js",
     "server": "nodemon app.js"
-    
   },
   "keywords": [
     "yakeen",
@@ -32,7 +31,9 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.0.0",
     "morgan": "^1.10.0",
+    "node-cache": "^5.1.2",
     "nodemon": "^3.1.14",
+    "rotating-file-stream": "^3.2.9",
     "simple-node-logger": "^21.8.12"
   }
 }

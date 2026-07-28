@@ -12,6 +12,7 @@ const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const fs = require("fs");
 const path = require("path");
+const rfs = require("rotating-file-stream");
 
 const logger = require("./config/logger");
 
@@ -76,10 +77,12 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-const accessLogStream = fs.createWriteStream(
-  path.join(logsDir, "access.log"),
-  { flags: "a" }
-);
+const accessLogStream = rfs.createStream("access.log", {
+  interval: "1d", // rotate daily
+  path: logsDir,
+  maxFiles: 7, // keep only the last 7 days of logs
+  maxSize: "10M", // rotate if file exceeds 10MB
+});
 
 app.use(
   morgan("combined", {

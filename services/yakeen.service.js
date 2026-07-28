@@ -1,6 +1,7 @@
 const yakeenAxios = require("../config/axios");
 const logger = require("../config/logger");
 const tokenCache = require("../utils/tokenCache");
+const identityCache = require("../utils/cache");
 const env = require("../config/env");
 
 /* =====================================================
@@ -47,7 +48,7 @@ const login = async () => {
       }
     );
 
-    console.log("YAKEEN login response:", response.status, response.data);
+    // console.log removed to save disk space and bandwidth
 
     if (response.status >= 400) {
       logger.error("YAKEEN login returned error status", {
@@ -164,11 +165,7 @@ const buildVerificationConfig = (
     "app-key": env.YAKEEN_APP_KEY,
   };
 
-  console.log("YAKEEN verification config:", {
-    url,
-    query,
-    headers,
-  });
+  // console.log removed to save disk space and bandwidth
 
   return {
     url,
@@ -182,6 +179,16 @@ const buildVerificationConfig = (
 ====================================================== */
 
 const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => {
+  const cacheKey = `${identityType}:${identityNumber}:${dateOfBirth}`;
+  const cachedData = identityCache.get(cacheKey);
+  if (cachedData) {
+    logger.info("Serving YAKEEN verification from cache", {
+      identityType,
+      identityNumber,
+    });
+    return cachedData;
+  }
+
   logger.info("YAKEEN verification request", {
     identityType,
     identityNumber,
@@ -211,7 +218,7 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
       headers: config.headers,
       timeout: config.timeout,
     });
-    console.log("YAKEEN verification response:", response.status, response.data);
+    // console.log removed to save disk space and bandwidth
     if (response.status === 401) {
       throw Object.assign(new Error("Unauthorized"), {
         response: { status: 401, data: response.data },
@@ -231,6 +238,7 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
       status: response.status,
     });
 
+    identityCache.set(cacheKey, response.data);
     return response.data;
   } catch (error) {
     /* ── Retry on 401 ─────────────────────────────── */
@@ -266,7 +274,8 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
           identityType,
           status: retryResponse.status,
         });
-        console.log("YAKEEN verification retry response:", retryResponse.status, retryResponse.data);
+        // console.log removed to save disk space and bandwidth
+        identityCache.set(cacheKey, retryResponse.data);
         return retryResponse.data;
       } catch (retryError) {
         safeLogAxiosError("YAKEEN retry verification failure", retryError);
@@ -305,6 +314,7 @@ const verifyIdentity = async ({ identityType, identityNumber, dateOfBirth }) => 
     throw new Error("YAKEEN service unavailable. Please try again later.");
   }
 };
+
 
 /* =====================================================
    Exports

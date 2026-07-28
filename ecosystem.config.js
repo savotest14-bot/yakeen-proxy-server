@@ -3,8 +3,8 @@ module.exports = {
     {
       name: "yakeen-proxy",
       script: "./app.js",
-      instances: 1,
-      exec_mode: "fork",
+      instances: "max",
+      exec_mode: "cluster",
       autorestart: true,
       watch: false,
       max_memory_restart: "256M",
